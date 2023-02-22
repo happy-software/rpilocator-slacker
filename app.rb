@@ -35,3 +35,5 @@ class App
     message += "\nGet them while they last!"
   end
 end
+
+App.new.run
