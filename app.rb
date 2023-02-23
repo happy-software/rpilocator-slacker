@@ -9,6 +9,8 @@ class App
       message = format_message(available_pis)
       SlackNotifier.new.post_message(message, ENV['NOTIFICATION_CHANNEL'])
     end
+  rescue BadResponse => e
+    SlackNotifier.new.post_message(e.message, ENV['NOTIFICATION_CHANNEL'])
   end
 
   def format_message(available_pis)
