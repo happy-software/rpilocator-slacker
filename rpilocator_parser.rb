@@ -21,12 +21,16 @@ class RpilocatorParser
   private
 
   def curl
+    client_data = get_client_data
+    cookie_data = client_data[:cookie_data]
+    local_token = client_data[:local_token]
+
     params = {
       :method => 'getProductTable',
-      :token => 'vgmsty3dfhmf282c2hkmmagutxmnxmueuorrtc5c',
+      :token => local_token,
       :country => 'US',
       :cat => 'PI4',
-      :_ => '1677025282357',
+      :_ => (Time.now + (30 * 24 * 60 * 60)).to_i.to_s,
     }
     @uri.query = URI.encode_www_form(params)
 
@@ -34,7 +38,7 @@ class RpilocatorParser
     req['authority'] = 'rpilocator.com'
     req['accept'] = 'application/json, text/javascript, */*; q=0.01'
     req['accept-language'] = 'en-US,en;q=0.9'
-    req['cookie'] = 'cftoken=0; RPILOCATOR=0; CFTOKEN=0; cfid=cca9df29-f207-412c-9c5f-b75f725fcc6a; CFID=cca9df29-f207-412c-9c5f-b75f725fcc6a'
+    req['cookie'] = cookie_data.map { |k,v| "#{k}=#{v};" }.join(" "),
     req['dnt'] = '1'
     req['referer'] = 'https://rpilocator.com/?country=US&cat=PI4'
     req['sec-ch-ua'] = '"Chromium";v="110", "Not A(Brand";v="24", "Brave";v="110"'
@@ -53,8 +57,28 @@ class RpilocatorParser
     res = Net::HTTP.start(@uri.hostname, @uri.port, req_options) do |http|
       http.request(req)
     end
-    raise BadResponse.new("Non 200 response code from Rpilocator: #{res}") unless res.code == "200"
 
+    raise BadResponse.new("Non 200 response code from Rpilocator: #{res.body}") unless res.code == "200"
     res.body
+  end
+
+  def get_client_data
+    uri = URI.parse("https://rpilocator.com/")
+    response = Net::HTTP.get_response(uri)
+
+    cfid = response['set-cookie'].split(";").find { |c| c.include?("cfid") }.split("=").last
+    response.body =~ /localToken\=\".*\"\;/
+    local_token = $&
+    local_token = local_token.split("=").last.gsub("\"", "").gsub(";", "")
+    {
+      cookie_data: {
+      'cfid' => cfid,
+      'CFID' => cfid,
+      'cftoken' => "0",
+      'CFTOKEN' => "0",
+      'RPILOCATOR' => '0',
+      },
+      local_token: local_token,
+    }
   end
 end
